@@ -6,7 +6,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -26,6 +28,7 @@ type Param struct {
 	NoInit       *bool
 	Verbose      *bool
 	Version      *bool
+	Josm         *bool
 }
 
 func getParam() *Param {
@@ -43,6 +46,7 @@ func getParam() *Param {
 		NoInit:       flag.Bool("no-init", false, "Don't try to refresh CloudFront cookies on startup"),
 		Verbose:      flag.Bool("verbose", false, "Verbose logging"),
 		Version:      flag.Bool("version", false, "Print version and exit"),
+		Josm:         flag.Bool("josm", false, "Open Strava Heatmap All in JOSM"),
 	}
 	flag.Parse()
 	return param
@@ -186,6 +190,37 @@ func (c *StravaSessionClient) fetchCloudFrontCookies() error {
 	return nil
 }
 
+func josmOpen(port string, listenerReady chan bool) {
+	<-listenerReady
+	log.Printf("Will open Strava Heatmap All in JOSM...")
+
+	baseUrl := "http://127.0.0.1:8111/imagery"
+	endpoint, err := url.Parse(baseUrl)
+	if err != nil {
+		log.Fatalf("Could not parse JOSM RemoteControl base url: %s\n", err)
+	}
+	queryParams := url.Values{}
+	queryParams.Set("title", "Strava Heatmap All")
+	queryParams.Set("type", "tms")
+	queryParams.Set("max_zoom", "15")
+	queryParams.Set("url", "http://localhost:"+port+"/identified/globalheat/all/bluered/{z}/{x}/{y}.png?v=19")
+	endpoint.RawQuery = queryParams.Encode()
+
+	resp, err := http.Get(endpoint.String())
+	if err != nil {
+		log.Fatalf("Could not call JOSM RemoteControl API (verify RemoteControl is enabled in JOSM): %s\n", err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode > 299 {
+		log.Fatalf("JOSM RemoteControl call failed with status code: %d, body: %s\n", resp.StatusCode, body)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Strava Heatmap All successfully opened in JOSM")
+}
+
 func main() {
 	param := getParam()
 	if *param.Version {
@@ -273,6 +308,18 @@ func main() {
 		proxy.ServeHTTP(w, req)
 	})
 
+	listenerReady := make(chan bool)
+	if *param.Josm {
+		go josmOpen(*param.Port, listenerReady)
+	}
+
 	log.Printf("Started proxy %s for target %s on http://localhost:%s/ ..", version, *param.Target, *param.Port)
-	log.Fatal(http.ListenAndServe(":"+*param.Port, nil))
+
+	listener, err := net.Listen("tcp", ":"+*param.Port)
+	if err != nil {
+		log.Fatalf("Could not start listener: %s", err)
+	}
+	listenerReady <- true
+
+	log.Fatal(http.Serve(listener, nil))
 }
