@@ -42,7 +42,7 @@ By default, the necessary cookies are expected to be found in the file `${HOME}/
 
 ### Configure your TMS client
 
-To use this with your GIS software of choice, just define a simple [TMS](https://wiki.openstreetmap.org/wiki/TMS) layer like shown below that fetches high resolution heatmap tiles:
+To use this with your client of choice, just define a simple [TMS](https://wiki.openstreetmap.org/wiki/TMS) layer like shown below that fetches high resolution heatmap tiles:
 
 ```xml
 <TMS>
@@ -66,15 +66,19 @@ With the option in place, you can add the custom layer `http://localhost:8080/id
 
 ### Accessing the personal heatmap
 
-By default, `strava-heatmap-proxy` will grant acess to the global heatmap. If you want to access your personal heatmap instead, you can run the proxy like this
+By default, `strava-heatmap-proxy` is configured to fetch tiles from the global heatmap. If you want your personal heatmap instead, you can run the proxy like this
+
 ```sh
 strava-heatmap-proxy --target "https://personal-heatmaps-external.strava.com/tiles/<USER_ID>/"
 ```
+
 And then use the followng URL in your layer configuration
-```sh
+
+```xml
 http://localhost:8080/bluered/{z}/{x}/{y}.png?missing=empty&amp;filter_type=all&amp;include_everyone=true&amp;include_followers_only=true&amp;include_only_me=true&amp;respect_privacy_zones=false&amp;include_commutes=false
 ```
-Whereas the `<USER_ID>` is a unique identifier you can find out by using the developer tools while accessing the personal heatmap in your browser. We will make this id visible via the [strava-cookie-exporter](#export-cookies) in a future release.
+
+Whereas the `<USER_ID>` is a unique identifier you can find out by using the developer tools while accessing the personal heatmap in your browser. We will make this field visible via the [strava-cookie-exporter](#export-cookies) in a future release.
 
 ## Screenshot
 
